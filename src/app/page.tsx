@@ -1,113 +1,218 @@
-import Image from 'next/image'
+"use client";
+import { PaymentMethod, PaymentMethods } from "./components/paymentsMethod";
+import { useState } from "react";
+import { formatToCurrencyE2 } from "@/services/formatToCurrencyE2";
+import { Item } from "./components/item";
+import { SummaryItems, ItemType } from "./components/summaryItems";
+
+const ITEMS_DEFAULT = [
+  {
+    id: "water",
+    name: "Água",
+    price: 250,
+  },
+  {
+    id: "coke",
+    name: "Refrigerante",
+    price: 300,
+  },
+  {
+    id: "beer",
+    name: "Cerveja",
+    price: 500,
+  },
+];
 
 export default function Home() {
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethods>("money");
+  const [change, setChange] = useState<string>("");
+  const [difference, setDifference] = useState<number>(0);
+  const [total, setTotal] = useState<number>(0);
+  const [itemsSelected, setItemsSelected] = useState<ItemType[]>([]);
+
+  const [items, setItems] = useState(ITEMS_DEFAULT);
+
+  const handleSelectPaymentMethod = (id: PaymentMethods) => {
+    setChange("");
+
+    if (total > 0 && id === "money") setDifference(-total);
+    else setDifference(0);
+
+    setPaymentMethod(id);
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+
+    const onlyNumbers = Number(value.replace(/[^0-9]/g, ""));
+
+    setChange(formatToCurrencyE2(onlyNumbers));
+
+    setDifference(onlyNumbers - total);
+  };
+
+  const handleSubmit = () => {
+    setTotal(0);
+    setDifference(0);
+    setChange("");
+    setItemsSelected([]);
+  };
+
+  const handleAddItem = (id: string) => {
+    const itemHasSelected = itemsSelected.find((item) => item.id === id);
+    const itemExist = items.find((item) => item.id === id);
+
+    if (!itemExist) return;
+
+    setTotal((prev) => prev + itemExist.price);
+
+    if (itemHasSelected) {
+      const newItemsSelected = itemsSelected.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            total: item.total + itemExist.price,
+            unit: item.unit + 1,
+          };
+        }
+
+        return item;
+      });
+      setItemsSelected(newItemsSelected);
+    } else {
+      setItemsSelected([
+        ...itemsSelected,
+        {
+          id: id,
+          name: itemExist.name,
+          total: itemExist.price,
+          unit: 1,
+        },
+      ]);
+    }
+  };
+
+  const handleRemoveItem = (id: string) => {
+    const itemHasSelected = itemsSelected.find((item) => item.id === id);
+    const itemExist = items.find((item) => item.id === id);
+
+    if (!itemExist) return;
+
+    if (itemHasSelected) {
+      setTotal((prev) => prev - itemExist.price);
+
+      if (itemHasSelected.unit === 1) {
+        const newItemsSelected = itemsSelected.filter((item) => item.id !== id);
+
+        setItemsSelected(newItemsSelected);
+      } else {
+        const newItemsSelected = itemsSelected.map((item) => {
+          if (item.id === id) {
+            return {
+              ...item,
+              total: item.total - itemExist.price,
+              unit: item.unit - 1,
+            };
+          }
+
+          return item;
+        });
+
+        setItemsSelected(newItemsSelected);
+      }
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <main className="h-screen flex items-center justify-center bg-gray-800 p-24">
+      <div className="bg-white flex rounded-lg h-5/6 w-full p-12">
+        <div className="h-full flex-1 flex flex-col gap-4">
+          {items.map((item) => (
+            <Item
+              key={item.id}
+              id={item.id}
+              name={item.name}
+              price={formatToCurrencyE2(item.price)}
+              handleAddItem={handleAddItem}
+              handleRemoveItem={handleRemoveItem}
             />
-          </a>
+          ))}
+        </div>
+
+        <div className="h-full rounded-lg bg-gray-800 flex flex-col justify-between p-4">
+          <div className="flex flex-col">
+            <p className="text-white font-bold text-xl mt-4">
+              Forma de pagamento
+            </p>
+            <div className="flex gap-4 mt-4">
+              <PaymentMethod
+                handleSelect={handleSelectPaymentMethod}
+                id="pix"
+                name="Pix"
+                selected={paymentMethod === "pix"}
+              />
+              <PaymentMethod
+                handleSelect={handleSelectPaymentMethod}
+                id="money"
+                name="Dinheiro"
+                selected={paymentMethod === "money"}
+              />
+              <PaymentMethod
+                handleSelect={handleSelectPaymentMethod}
+                id="credit-card"
+                name="Crédito"
+                selected={paymentMethod === "credit-card"}
+              />
+              <PaymentMethod
+                handleSelect={handleSelectPaymentMethod}
+                id="debit-card"
+                name="Débito"
+                selected={paymentMethod === "debit-card"}
+              />
+            </div>
+            <div className="flex flex-col gap-4 mt-4">
+              <p className="text-white font-bold">Resumo</p>
+              <div>
+                <SummaryItems items={itemsSelected} />
+              </div>
+              <div className="flex text-white justify-between">
+                <p className="text-2xl font-semibold">Total</p>
+                <p className="text-2xl font-semibold">
+                  {formatToCurrencyE2(total)}
+                </p>
+              </div>
+              {paymentMethod === "money" && (
+                <div className="flex flex-col gap-4">
+                  <p className="text-white font-semibold">Troco para</p>
+                  <input
+                    className="rounded-lg p-2 text-end"
+                    placeholder="R$ 0,00"
+                    value={change}
+                    onChange={handleInputChange}
+                  />
+                  <div className="flex text-white justify-between">
+                    <p className="text-2xl font-semibold">
+                      {difference < 0 ? "Falta" : "Troco"}
+                    </p>
+                    <p className="text-2xl font-semibold">
+                      {formatToCurrencyE2(difference)}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            disabled={difference < 0}
+            onClick={handleSubmit}
+            className={`${
+              difference < 0 ? "bg-gray-400" : "bg-green-400 hover:bg-green-300"
+            } text-white rounded-lg py-2`}
+          >
+            Confirmar
+          </button>
         </div>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
     </main>
-  )
+  );
 }
